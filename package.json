@@ -1,0 +1,28 @@
+{
+  "name": "node-jwt-redis",
+  "version": "1.0.7",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/goormee/node-jwt-redis.git"
+  },
+  "keywords": [
+    "node",
+    "jwt",
+    "redis"
+  ],
+  "author": "goormee",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/goormee/node-jwt-redis/issues"
+  },
+  "homepage": "https://github.com/goormee/node-jwt-redis#readme",
+  "dependencies": {
+    "jsonwebtoken": "^8.5.1",
+    "redis": "^4.4.0"
+  }
+}
