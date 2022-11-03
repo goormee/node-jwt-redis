@@ -4,7 +4,7 @@ class RedisJwtService {
     constructor(redis,jwt) {
         //* Redis 연결
         if(!!redis&&Object.keys(redis).length>0){
-            const redisClient = createClient({ url: redis.url });
+            const redisClient = createClient({ url: redis.url, legacyMode: true });
             redisClient.on('connect', () => {
                 console.log('✌️ Redis connected!');
             });
