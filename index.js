@@ -114,10 +114,7 @@ class RedisJwtService {
               return decoded;
           }
         } catch (err) {
-          return {
-            ok: false,
-            message: err.message,
-          };
+            throw new Error(err)
         }
     }
     /**
@@ -132,13 +129,13 @@ class RedisJwtService {
               jwt.verify(token, this.jwtRefreshSecret);
               return true;
             } catch (err) {
-              return false;
+                throw new Error(err)
             }
           } else {
             return false;
           }
         } catch (err) {
-          return false;
+            throw new Error(err)
         }
       }
     /**
