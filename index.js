@@ -155,7 +155,7 @@ class RedisJwtService {
                     const currentTime = Math.round((new Date().getTime())/1000);
                     const restExipreTime = decoded.exp-currentTime
   
-                    if(restExipreTime>10){
+                    if(restExipreTime>3){
                         this.redis.set(accessToken, 'logout','EX', restExipreTime ,async () => {
                             console.log(accessToken + ' : blackList regist complete')
                         })
