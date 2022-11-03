@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 class RedisJwtService {
     constructor(redis,jwt) {
         //* Redis 연결
-        if(!!redis){
+        if(!!redis&&Object.keys(redis).length>0){
             const redisClient = createClient({ url: redis.url });
             redisClient.on('connect', () => {
                 console.log('✌️ Redis connected!');
@@ -26,7 +26,8 @@ class RedisJwtService {
             this.redis = redisClient;
             this.redisAsync = redisClient.v4;// 기본 redisClient 객체는 콜백기반인데 v4버젼은 프로미스 기반이라 사용
         }
-        if(!!jwt){
+        this.jwt = jwt;
+        if(!!jwt&&Object.keys(jwt).length>0){
             this.jwtAccessSecret = jwt.accessSecret;
             this.jwtRefreshSecret = jwt.refreshSecret;
             this.jwtAccessExpiresIn = jwt.accessExpiresIn;
@@ -38,21 +39,27 @@ class RedisJwtService {
     /**
      * issueTokenPair
      */
-    issueTokenPair = (id) => {
-        const accessToken = jwt.sign({id} , this.jwtAccessSecret, {
-            expiresIn: this.jwtAccessExpiresIn,
-            subject : 'accessToken'
-        });
-        const refreshToken = jwt.sign({id} , this.jwtRefreshSecret, {
-            expiresIn: this.jwtRefreshExpiresIn,
-            subject : 'refreshToken'
-        });
-        this.redis.set(id, refreshToken,'EX', this.jwtRefreshExpiresIn ,async () => {
-            console.log(id + ' : refreshToken regist complete')
-        })
-        return { 
-            accessToken : accessToken,
-            refreshToken : refreshToken
+    issueTokenPair = async (id) => {
+        const data = await this.redisAsync.get(id); // 등록된 refreshToken이 있는지 확인
+        if(!!data){
+            console.error('issueTokenPair Error : ','There are already issued tokens!')
+            return false;
+        }else{
+            const accessToken = jwt.sign({id} , this.jwtAccessSecret, {
+                expiresIn: this.jwtAccessExpiresIn,
+                subject : 'accessToken'
+            });
+            const refreshToken = jwt.sign({id} , this.jwtRefreshSecret, {
+                expiresIn: this.jwtRefreshExpiresIn,
+                subject : 'refreshToken'
+            });
+            this.redis.set(id, refreshToken,'EX', this.jwtRefreshExpiresIn ,async () => {
+                console.log(id + ' : refreshToken regist complete')
+            })
+            return { 
+                accessToken : accessToken,
+                refreshToken : refreshToken
+            }
         }
     }
     /**
