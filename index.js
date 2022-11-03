@@ -9,7 +9,7 @@ class RedisJwtService {
                 console.log('✌️ Redis connected!');
             });
             redisClient.on('error', (err) => {
-                console.error('Redis Client Error : ', err);
+                throw new Error(err);
             });
             redisClient.connect().then(); // redis v4 연결 (비동기)
             this.redis = redisClient;
@@ -20,7 +20,7 @@ class RedisJwtService {
                 console.log('✌️ Redis connected!');
             });
             redisClient.on('error', (err) => {
-                console.error('Redis Client Error : ', err);
+                throw new Error(err);
             });
             redisClient.connect().then(); // redis v4 연결 (비동기)
             this.redis = redisClient;
@@ -33,7 +33,7 @@ class RedisJwtService {
             this.jwtAccessExpiresIn = jwt.accessExpiresIn;
             this.jwtRefreshExpiresIn = jwt.refreshExpiresIn;
         }else{
-            console.error('Jwt Env Error : ', 'There is no environment variables for JWT');
+            throw new Error('JWT ERROR : There is no environment variables for JWT');
         }
     }
     /**
@@ -42,8 +42,7 @@ class RedisJwtService {
     issueTokenPair = async (id) => {
         const data = await this.redisAsync.get(id); // 등록된 refreshToken이 있는지 확인
         if(!!data){
-            console.error('issueTokenPair Error : ','There are already issued tokens!')
-            return false;
+            throw new Error('issueTokenPair Error : There are already issued tokens!');
         }else{
             const accessToken = jwt.sign({id} , this.jwtAccessSecret, {
                 expiresIn: this.jwtAccessExpiresIn,
@@ -70,8 +69,7 @@ class RedisJwtService {
             const verifyResult = await this.verifyAccessToken(accessToken);
             const decoded = jwt.decode(accessToken)
             if (decoded === null) {
-                console.error('reissueAccessToken Error : ','No authorized!')
-                return false;
+                throw new Error('reissueAccessToken Error : No authorized!')
             }
             const userId = decoded.id;
             const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, userId);
@@ -87,17 +85,14 @@ class RedisJwtService {
                         refreshToken : refreshToken
                     }
                 }else{
-                    console.error('reissueAccessToken Error : ','Access token is not expired!')
-                    return false;
+                    throw new Error('reissueAccessToken Error : Access token is not expired!')
                 }
             }else{
-                console.error('reissueAccessToken Error : ','No authorized!')
-                return false;
+                throw new Error('reissueAccessToken Error : No authorized!')
             }
 
         }else{
-            console.error('reissueAccessToken Error : ','Access token and refresh token are need for reissue!')
-            return false;
+            throw new Error('reissueAccessToken Error : Access token and refresh token are need for reissue!')
         }
     }
     /**
@@ -154,8 +149,7 @@ class RedisJwtService {
             const verifyResult = await this.verifyAccessToken(accessToken);
             const decoded = jwt.decode(accessToken)
             if (decoded === null) {
-                console.error('destroyToken Error : ','No authorized!')
-                return false;
+                throw new Error('destroyToken Error : No authorized!')
             }
             const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, decoded.id);
             if(refreshVerifyResult){
@@ -170,17 +164,14 @@ class RedisJwtService {
                         })
                     }
                 }else{
-                    console.error('destroyToken Error : ','Access token is expired!')
-                    return false;
+                    throw new Error('destroyToken Error : Access token is expired!')
                 }
             }else{
-                console.error('destroyToken Error : ','No authorized!')
-                return false;
+                throw new Error('destroyToken Error : No authorized!')
             }
 
         }else{
-            console.error('reissueAccessToken Error : ','Access token and refresh token are need for reissue!')
-            return false;
+            throw new Error('destroyToken Error : Access token and refresh token are need for reissue!')
         }
     }
 }
