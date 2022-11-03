@@ -66,13 +66,13 @@ class RedisJwtService {
      */
      reissueAccessToken = async (accessToken,refreshToken) => {
         if(!!accessToken,!!refreshToken){
-            const verifyResult = await this.verifyAccessToken(accessToken);
+            const verifyResult = await this.verifyAccessToken(accessToken,'offError');
             const decoded = jwt.decode(accessToken)
             if (decoded === null) {
                 throw new Error('reissueAccessToken Error : No authorized!')
             }
             const userId = decoded.id;
-            const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, userId);
+            const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, userId,'offError');
 
             if(refreshVerifyResult){
                 if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
@@ -98,7 +98,7 @@ class RedisJwtService {
     /**
      * verifyAccessToken
      */
-     verifyAccessToken = async (token) => { // access token 검증
+     verifyAccessToken = async (token,mode) => { // access token 검증
         let decoded = null;
         try {
           const data = await this.redisAsync.get(token); // access token 가져오기
@@ -114,13 +114,20 @@ class RedisJwtService {
               return decoded;
           }
         } catch (err) {
-            throw new Error(err)
+            if(mode=='offError'){
+                return {
+                    ok: false,
+                    message: err.message
+                };
+            }else{
+                throw new Error(err)
+            }
         }
     }
     /**
      * verifyRefreshToken
      */
-     verifyRefreshToken = async (token, userId) => { // refresh token 검증
+     verifyRefreshToken = async (token, userId, mode) => { // refresh token 검증
 
         try {
           const data = await this.redisAsync.get(userId); // refresh token 가져오기
@@ -129,13 +136,21 @@ class RedisJwtService {
               jwt.verify(token, this.jwtRefreshSecret);
               return true;
             } catch (err) {
-                throw new Error(err)
+                if(mode=='offError'){
+                    return false;
+                }else{
+                    throw new Error(err)
+                }
             }
           } else {
             return false;
           }
         } catch (err) {
-            throw new Error(err)
+            if(mode=='offError'){
+                return false;
+            }else{
+                throw new Error(err)
+            }
         }
       }
     /**
@@ -143,12 +158,12 @@ class RedisJwtService {
      */
      destroyToken = async (accessToken,refreshToken) => {
         if(!!accessToken,!!refreshToken){
-            const verifyResult = await this.verifyAccessToken(accessToken);
+            const verifyResult = await this.verifyAccessToken(accessToken,'offError');
             const decoded = jwt.decode(accessToken)
             if (decoded === null) {
                 throw new Error('destroyToken Error : No authorized!')
             }
-            const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, decoded.id);
+            const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, decoded.id,'offError');
             if(refreshVerifyResult){
                 if (verifyResult.ok) {
                     await this.redisAsync.del(decoded.id);
