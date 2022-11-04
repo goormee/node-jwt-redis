@@ -90,15 +90,15 @@ jwtr.redis.set(key,value,callbackFunc)
 ...
 jwtr.redis.quit()
 ```
-> You can use the general method of redis
-jwtr.redis.[method]
+> You can use the general method of redis\
+ex) jwtr.redis.[method]
 
 #### ETC Jsonwebtoken Method
 ```cpp
 jwtr.jwt.decode(token [, options])
 ```
-> You can use the general method of jsonwebtoken
-jwtr.jwt.[method]
+> You can use the general method of jsonwebtoken\
+ex) jwtr.jwt.[method]
 
 ## License
 
