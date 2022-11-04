@@ -2,6 +2,10 @@ const {createClient} = require('redis');
 const jwt = require("jsonwebtoken");
 class RedisJwtService {
     constructor(redis,jwt) {
+        this.redisInit(redis);
+        this.jwtInit(jwt);
+    }
+    redisInit = async(redis)=>{
         //* Redis 연결
         if(!!redis&&Object.keys(redis).length>0){
             const redisClient = createClient({ url: redis.url, legacyMode: true });
@@ -26,6 +30,9 @@ class RedisJwtService {
             this.redis = redisClient;
             this.redisAsync = redisClient.v4;// 기본 redisClient 객체는 콜백기반인데 v4버젼은 프로미스 기반이라 사용
         }
+    }
+    jwtInit = async(jwt)=>{
+        //* jwt 셋팅
         this.jwt = jwt;
         if(!!jwt&&Object.keys(jwt).length>0){
             this.jwtAccessSecret = jwt.accessSecret;
@@ -35,7 +42,7 @@ class RedisJwtService {
         }else{
             throw new Error('JWT ERROR : There is no environment variables for JWT');
         }
-    }
+    }    
     /**
      * issueTokenPair
      */
@@ -55,6 +62,7 @@ class RedisJwtService {
             this.redis.set(id, refreshToken,'EX', this.jwtRefreshExpiresIn ,async () => {
                 console.log(id + ' : refreshToken regist complete')
             })
+            this.redis.quit();
             return { 
                 accessToken : accessToken,
                 refreshToken : refreshToken
@@ -102,6 +110,7 @@ class RedisJwtService {
         let decoded = null;
         try {
           const data = await this.redisAsync.get(token); // access token 가져오기
+          this.redis.quit();
           if(data=="logout"){
             return {
                 ok: false,
@@ -131,6 +140,7 @@ class RedisJwtService {
 
         try {
           const data = await this.redisAsync.get(userId); // refresh token 가져오기
+          this.redis.quit();
           if (token === data) {
             try {
               jwt.verify(token, this.jwtRefreshSecret);
@@ -175,6 +185,7 @@ class RedisJwtService {
                             console.log(accessToken + ' : blackList regist complete')
                         })
                     }
+                    this.redis.quit();
                 }else{
                     throw new Error('destroyToken Error : Access token is expired!')
                 }
