@@ -19,7 +19,7 @@ And of course `Node-jwt-redis` itself is open source with a [public repository](
 ## Installation
 
 Here's how to install it:
-```sh
+```bash
 npm install node-jwt-redis
 ```
 > Note: 
@@ -28,7 +28,7 @@ So you better to delete it in advance
 
 ## Usage
 #### Basic Example
-```
+```cpp
 const jwtRedis = require("node-jwt-redis");
 const redisOptions = {url: redis://alice:foobared@awesome.redis.server:6380}; //redis[s]://[[username][:password]@][host][:port][/db-number]
 const jwtOptions = {
@@ -64,27 +64,27 @@ await jwtr.destroyToken(accessToken,refreshToken);
 
 
 #### Method for creating a token.
-```
+```cpp
 jwtr.issueTokenPair(keyId): Promise
 ```
 #### Method for recreating an accessToken.
-```
+```cpp
 jwtr.reissueAccessToken(accessToken,refreshToken): Promise
 ```
 #### Method for verifying an accessToken
-```
+```cpp
 jwtr.verifyAccessToken(accessToken): Promise
 ```
 #### Method for verifying a refreshToken
-```
+```cpp
 jwtr.verifyRefreshToken(refreshToken,keyId): Promise
 ```
 #### Method for breaking tokens
-```
+```cpp
 jwtr.destroyToken(accessToken,refreshToken): void
 ```
 #### ETC Redis Method
-```
+```cpp
 jwtr.redisAsync.set(key,value) : Promise
 jwtr.redis.set(key,value,callbackFunc) 
 ...
@@ -94,7 +94,7 @@ jwtr.redis.quit()
 jwtr.redis.[method]
 
 #### ETC Jsonwebtoken Method
-```
+```cpp
 jwtr.jwt.decode(token [, options])
 ```
 > You can use the general method of jsonwebtoken
