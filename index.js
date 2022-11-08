@@ -63,7 +63,6 @@ class RedisJwtService {
             this.redis.set(keyId, refreshToken,'EX', this.jwtRefreshExpiresIn ,async () => {
                 console.log(keyId + ' : refreshToken regist complete')
             })
-            this.redis.quit();
             return { 
                 accessToken : accessToken,
                 refreshToken : refreshToken
@@ -112,7 +111,6 @@ class RedisJwtService {
         let decoded = null;
         try {
           const data = await this.redisAsync.get(token); // access token 가져오기
-          this.redis.quit();
           if(data=="logout"){
             return {
                 ok: false,
@@ -142,7 +140,6 @@ class RedisJwtService {
         keyId = keyId.toString();
         try {
           const data = await this.redisAsync.get(keyId); // refresh token 가져오기
-          this.redis.quit();
           if (token === data) {
             try {
               jwt.verify(token, this.jwtRefreshSecret);
@@ -187,7 +184,6 @@ class RedisJwtService {
                             console.log(accessToken + ' : blackList regist complete')
                         })
                     }
-                    this.redis.quit();
                 }else{
                     throw new Error('destroyToken Error : Access token is expired!')
                 }
