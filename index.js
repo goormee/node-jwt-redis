@@ -8,7 +8,7 @@ class RedisJwtService {
     redisInit = async(redis)=>{
         //* Redis 연결
         if(!!redis&&Object.keys(redis).length>0){
-            const redisClient = createClient({ url: redis.url, legacyMode: true });
+            const redisClient = createClient(redis);
             redisClient.on('connect', () => {
                 console.log('✌️ Redis connected!');
             });
@@ -46,21 +46,22 @@ class RedisJwtService {
     /**
      * issueTokenPair
      */
-    issueTokenPair = async (id) => {
-        const data = await this.redisAsync.get(id); // 등록된 refreshToken이 있는지 확인
+    issueTokenPair = async (keyId) => {
+        keyId = keyId.toString()
+        const data = await this.redisAsync.get(keyId); // 등록된 refreshToken이 있는지 확인
         if(!!data){
             throw new Error('issueTokenPair Error : There are already issued tokens!');
         }else{
-            const accessToken = jwt.sign({id} , this.jwtAccessSecret, {
+            const accessToken = jwt.sign({keyId} , this.jwtAccessSecret, {
                 expiresIn: this.jwtAccessExpiresIn,
                 subject : 'accessToken'
             });
-            const refreshToken = jwt.sign({id} , this.jwtRefreshSecret, {
+            const refreshToken = jwt.sign({keyId} , this.jwtRefreshSecret, {
                 expiresIn: this.jwtRefreshExpiresIn,
                 subject : 'refreshToken'
             });
-            this.redis.set(id, refreshToken,'EX', this.jwtRefreshExpiresIn ,async () => {
-                console.log(id + ' : refreshToken regist complete')
+            this.redis.set(keyId, refreshToken,'EX', this.jwtRefreshExpiresIn ,async () => {
+                console.log(keyId + ' : refreshToken regist complete')
             })
             this.redis.quit();
             return { 
@@ -79,12 +80,12 @@ class RedisJwtService {
             if (decoded === null) {
                 throw new Error('reissueAccessToken Error : No authorized!')
             }
-            const userId = decoded.id;
-            const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, userId,'offError');
+            const keyId = decoded.id;
+            const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, keyId,'offError');
 
             if(refreshVerifyResult){
                 if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
-                    const accessToken = jwt.sign({userId}, this.jwtAccessSecret, {
+                    const accessToken = jwt.sign({keyId}, this.jwtAccessSecret, {
                         expiresIn: this.jwtAccessExpiresIn,
                         subject : 'accessToken'
                     });
@@ -107,6 +108,7 @@ class RedisJwtService {
      * verifyAccessToken
      */
      verifyAccessToken = async (token,mode) => { // access token 검증
+        token = token.toString();
         let decoded = null;
         try {
           const data = await this.redisAsync.get(token); // access token 가져오기
@@ -136,10 +138,10 @@ class RedisJwtService {
     /**
      * verifyRefreshToken
      */
-     verifyRefreshToken = async (token, userId, mode) => { // refresh token 검증
-
+     verifyRefreshToken = async (token, keyId, mode) => { // refresh token 검증
+        keyId = keyId.toString();
         try {
-          const data = await this.redisAsync.get(userId); // refresh token 가져오기
+          const data = await this.redisAsync.get(keyId); // refresh token 가져오기
           this.redis.quit();
           if (token === data) {
             try {

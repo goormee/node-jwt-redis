@@ -30,7 +30,14 @@ So you better to delete it in advance
 #### Basic Example
 ```cpp
 const jwtRedis = require("node-jwt-redis");
-const redisOptions = {url: redis://alice:foobared@awesome.redis.server:6380}; //redis[s]://[[username][:password]@][host][:port][/db-number]
+const redisOptions = {
+   socket: {
+       host: 'localhost',
+       port: Number(6379)
+   },
+   password: 'redisPassword',
+   legacyMode: true // essential
+};
 const jwtOptions = {
     accessSecret : Config.accessSecret, // secret string
     refreshSecret:  Config.refreshSecret, // secret string
