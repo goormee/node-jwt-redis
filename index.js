@@ -73,15 +73,14 @@ class RedisJwtService {
      * reissueAccessToken
      */
      reissueAccessToken = async (accessToken,refreshToken) => {
-        if(!!accessToken,!!refreshToken){
+        if(!!accessToken&&!!refreshToken){
             const verifyResult = await this.verifyAccessToken(accessToken,'offError');
             const decoded = jwt.decode(accessToken)
             if (decoded === null) {
                 throw new Error('reissueAccessToken Error : No authorized!')
             }
-            const keyId = decoded.id;
+            const keyId = decoded.keyId;
             const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, keyId,'offError');
-
             if(refreshVerifyResult){
                 if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
                     const accessToken = jwt.sign({keyId}, this.jwtAccessSecret, {
@@ -98,7 +97,6 @@ class RedisJwtService {
             }else{
                 throw new Error('reissueAccessToken Error : No authorized!')
             }
-
         }else{
             throw new Error('reissueAccessToken Error : Access token and refresh token are need for reissue!')
         }
@@ -172,10 +170,10 @@ class RedisJwtService {
             if (decoded === null) {
                 throw new Error('destroyToken Error : No authorized!')
             }
-            const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, decoded.id,'offError');
+            const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, decoded.keyId,'offError');
             if(refreshVerifyResult){
                 if (verifyResult.ok) {
-                    await this.redisAsync.del(decoded.id);
+                    await this.redisAsync.del(decoded.keyId);
                     const currentTime = Math.round((new Date().getTime())/1000);
                     const restExipreTime = decoded.exp-currentTime
   
