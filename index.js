@@ -77,7 +77,7 @@ class RedisJwtService {
             const verifyResult = await this.verifyAccessToken(accessToken,'offError');
             const decoded = jwt.decode(accessToken)
             if (decoded === null) {
-                throw new Error('reissueAccessToken Error : No authorized!')
+                throw new Error('reissueAccessToken Error : No authorized accessToken!')
             }
             const keyId = decoded.keyId;
             const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, keyId,'offError');
@@ -95,7 +95,7 @@ class RedisJwtService {
                     throw new Error('reissueAccessToken Error : Access token is not expired!')
                 }
             }else{
-                throw new Error('reissueAccessToken Error : No authorized!')
+                throw new Error('reissueAccessToken Error : No authorized refreshToken!')
             }
         }else{
             throw new Error('reissueAccessToken Error : Access token and refresh token are need for reissue!')
