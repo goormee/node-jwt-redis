@@ -175,6 +175,8 @@ class RedisJwtService {
      */
      verifyRefreshToken = async (token, keyId, mode) => { // refresh token 검증
         keyId = keyId.toString();
+        token = token.toString();
+        let decoded = null;
         try {
           const data = await this.redisAsync.get(keyId); // refresh token 가져오기
           if (token === data) {
