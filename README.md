@@ -29,7 +29,7 @@ So you better to delete it in advance
 ## Usage
 #### Basic Example
 ```cpp
-const jwtRedis = require("node-jwt-redis");
+const jwtRedis = require("node-jwt-redis").jwtRedis;
 
 let redisOptions = {}
 if(redisEnv=='local'){//local Redis
