@@ -30,19 +30,23 @@ So you better to delete it in advance
 #### Basic Example
 ```cpp
 const jwtRedis = require("node-jwt-redis");
-const redisOptions = {
-   socket: {
-       host: 'localhost',
-       port: Number(6379)
-   },
-   password: 'redisPassword',
-   legacyMode: true // essential
-};
+
+let redisOptions = {}
+if(redisEnv=='local'){//local Redis
+   redisOptions = {
+      legacyMode: true, // required !!
+   }
+}else{//cloud Redis
+   redisOptions = {
+      url: `redis://${redisHost}:${redisPort}`,
+      legacyMode: true, // required !!
+   }
+}
 const jwtOptions = {
-    accessSecret : Config.accessSecret, // secret string
-    refreshSecret:  Config.refreshSecret, // secret string
-    accessExpiresIn:  60*15, // seconds
-    refreshExpiresIn:  60*60*24*90 // seconds
+    accessSecret : accessSecret, // secret string
+    refreshSecret:  refreshSecret, // secret string
+    accessExpiresIn:  60*15, // seconds : if zero never expired
+    refreshExpiresIn:  60*60*24*90 // seconds : if zero never expired
 }
 const jwtr = new jwtRedis(redisOptions,jwtOptions);
 
