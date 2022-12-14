@@ -1,5 +1,6 @@
 const {createClient} = require('redis');
 const jwt = require("jsonwebtoken");
+const nodeJwtRedisError = require("./nodeJwtRedisError");
 class RedisJwtService {
     constructor(redis,jwt) {
         this.redisInit(redis);
@@ -13,7 +14,7 @@ class RedisJwtService {
                 console.log('✌️ Redis connected!');
             });
             redisClient.on('error', (err) => {
-                throw new Error(err);
+                throw new nodeJwtRedisError("Redis","ConnectionError",400,{code: 300, message: err.message});
             });
             redisClient.connect().then(); // redis v4 연결 (비동기)
             this.redis = redisClient;
@@ -24,7 +25,7 @@ class RedisJwtService {
                 console.log('✌️ Redis connected!');
             });
             redisClient.on('error', (err) => {
-                throw new Error(err);
+                throw new nodeJwtRedisError("Redis","ConnectionError",400,{code: 300, message: err.message});
             });
             redisClient.connect().then(); // redis v4 연결 (비동기)
             this.redis = redisClient;
@@ -40,7 +41,7 @@ class RedisJwtService {
             this.jwtAccessExpiresIn = jwt.accessExpiresIn;
             this.jwtRefreshExpiresIn = jwt.refreshExpiresIn;
         }else{
-            throw new Error('JWT ERROR : There is no environment variables for JWT');
+            throw new nodeJwtRedisError("Jwt","ValidationError",400,{code: 310, message: 'There is no environment variables for JWT'});
         }
     }    
     /**
@@ -50,7 +51,7 @@ class RedisJwtService {
         keyId = keyId.toString()
         const data = await this.redisAsync.get(keyId); // 등록된 refreshToken이 있는지 확인
         if(!!data){
-            throw new Error('issueTokenPair Error : There are already issued tokens!');
+            throw new nodeJwtRedisError("Jwt","issueTokenPairError",400,{code: 320, message: 'There are already issued tokens!'});
         }else{
             let accessTokenOptions = {}
             if(!!this.jwtAccessExpiresIn && this.jwtAccessExpiresIn>0){
@@ -99,11 +100,11 @@ class RedisJwtService {
             const verifyResult = await this.verifyAccessToken(accessToken,'offError');
             const decoded = jwt.decode(accessToken)
             if (decoded === null) {
-                throw new Error('reissueAccessToken Error : No authorized accessToken!')
+                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,{code: 333, message: 'No authorized accessToken!'});
             }
             const keyId = decoded.keyId;
             const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, keyId,'offError');
-            if(refreshVerifyResult){
+            if(refreshVerifyResult.ok==true){
                 if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
                     let accessTokenOptions = {}
                     if(!!this.jwtAccessExpiresIn && this.jwtAccessExpiresIn>0){
@@ -121,14 +122,16 @@ class RedisJwtService {
                         accessToken : accessToken,
                         refreshToken : refreshToken
                     }
-                }else{
-                    throw new Error('reissueAccessToken Error : Access token is not expired!')
+                }else if (verifyResult.ok === false) {
+                    throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,{code: 333, message: 'No authorized accessToken!'});
+                }else if (verifyResult.ok === true) {
+                    throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,{code: 340, message: 'Access token is not expired!'});
                 }
-            }else{
-                throw new Error('reissueAccessToken Error : No authorized refreshToken!')
+            }else if (refreshVerifyResult.ok==false) {
+                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,{code: 334, message: 'No authorized refreshToken!'});
             }
         }else{
-            throw new Error('reissueAccessToken Error : Access token and refresh token are need for reissue!')
+            throw new nodeJwtRedisError("Jwt","ValidationError",400,{code: 311, message: 'Both an access token and a refresh token are required!'});
         }
     }
     /**
@@ -157,7 +160,13 @@ class RedisJwtService {
                     message: err.message
                 };
             }else{
-                throw new Error(err)
+                if(err.name =='TokenExpiredError'){
+                    throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,{code: 341, message: 'Access token is expired!'});
+                }else if(err.name =='JsonWebTokenError'){
+                    throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,{code: 331, message: err.message});
+                }else{
+                    throw new nodeJwtRedisError("Jwt",err.name,400,err);
+                }
             }
         }
     }
@@ -169,24 +178,30 @@ class RedisJwtService {
         try {
           const data = await this.redisAsync.get(keyId); // refresh token 가져오기
           if (token === data) {
-            try {
-              jwt.verify(token, this.jwtRefreshSecret);
-              return true;
-            } catch (err) {
-                if(mode=='offError'){
-                    return false;
-                }else{
-                    throw new Error(err)
-                }
-            }
+            decoded = jwt.verify(token, this.jwtRefreshSecret);
+            decoded.ok = true;
+            decoded.message = 'valid'
+            return decoded;
           } else {
-            return false;
+            return {
+                ok: false,
+                message: 'unauthorized'
+            };
           }
         } catch (err) {
             if(mode=='offError'){
-                return false;
+                return {
+                    ok: false,
+                    message: err.message
+                };
             }else{
-                throw new Error(err)
+                if(err.name =='TokenExpiredError'){
+                    throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,{code: 342, message: 'Refresh token is expired!'});
+                }else if(err.name =='JsonWebTokenError'){
+                    throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,{code: 332, message: err.message});
+                }else{
+                    throw new nodeJwtRedisError("Jwt",err.name,400,err);
+                }
             }
         }
       }
@@ -198,10 +213,10 @@ class RedisJwtService {
             const verifyResult = await this.verifyAccessToken(accessToken,'offError');
             const decoded = jwt.decode(accessToken)
             if (decoded === null) {
-                throw new Error('destroyToken Error : No authorized!')
+                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,{code: 333, message: 'No authorized accessToken!'});
             }
             const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, decoded.keyId,'offError');
-            if(refreshVerifyResult){
+            if(refreshVerifyResult.ok==true){
                 if (verifyResult.ok) {
                     await this.redisAsync.del(decoded.keyId);
                     const currentTime = Math.round((new Date().getTime())/1000);
@@ -212,15 +227,17 @@ class RedisJwtService {
                             console.log(accessToken + ' : blackList regist complete')
                         })
                     }
-                }else{
-                    throw new Error('destroyToken Error : Access token is expired!')
+                }else if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
+                    throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,{code: 341, message: 'Access token is expired!'});
+                }else if (verifyResult.ok === false) {
+                    throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,{code: 333, message: 'No authorized accessToken!'});
                 }
-            }else{
-                throw new Error('destroyToken Error : No authorized!')
+            }else if(refreshVerifyResult.ok==false){
+                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,{code: 334, message: 'No authorized refreshToken!'});
             }
 
         }else{
-            throw new Error('destroyToken Error : Access token and refresh token are need for reissue!')
+            throw new nodeJwtRedisError("Jwt","ValidationError",400,{code: 311, message: 'Both an access token and a refresh token are required!'});
         }
     }
 }
