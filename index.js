@@ -52,17 +52,39 @@ class RedisJwtService {
         if(!!data){
             throw new Error('issueTokenPair Error : There are already issued tokens!');
         }else{
-            const accessToken = jwt.sign({keyId} , this.jwtAccessSecret, {
-                expiresIn: this.jwtAccessExpiresIn,
-                subject : 'accessToken'
-            });
-            const refreshToken = jwt.sign({keyId} , this.jwtRefreshSecret, {
-                expiresIn: this.jwtRefreshExpiresIn,
-                subject : 'refreshToken'
-            });
-            this.redis.set(keyId, refreshToken,'EX', this.jwtRefreshExpiresIn ,async () => {
-                console.log(keyId + ' : refreshToken regist complete')
-            })
+            let accessTokenOptions = {}
+            if(!!this.jwtAccessExpiresIn && this.jwtAccessExpiresIn>0){
+                accessTokenOptions = {
+                    expiresIn: this.jwtAccessExpiresIn,
+                    subject : 'accessToken'
+                }
+            }else{
+                accessTokenOptions = {
+                    subject : 'accessToken'
+                }
+            }
+            let refreshTokenOptions = {}
+            if(!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0){
+                refreshTokenOptions = {
+                    expiresIn: this.jwtRefreshExpiresIn,
+                    subject : 'refreshToken'
+                }
+            }else{
+                refreshTokenOptions = {
+                    subject : 'refreshToken'
+                }
+            }
+            const accessToken = jwt.sign({keyId} , this.jwtAccessSecret, accessTokenOptions);
+            const refreshToken = jwt.sign({keyId} , this.jwtRefreshSecret, refreshTokenOptions);
+            if (!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0) {
+                this.redis.set(keyId, refreshToken,'EX', this.jwtRefreshExpiresIn ,async () => {
+                    console.log(keyId + ' : refreshToken regist complete')
+                })
+            } else {
+                this.redis.set(keyId, refreshToken ,async () => {
+                    console.log(keyId + ' : refreshToken regist complete(unlimit)')
+                })
+            }
             return { 
                 accessToken : accessToken,
                 refreshToken : refreshToken
@@ -83,10 +105,18 @@ class RedisJwtService {
             const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, keyId,'offError');
             if(refreshVerifyResult){
                 if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
-                    const accessToken = jwt.sign({keyId}, this.jwtAccessSecret, {
-                        expiresIn: this.jwtAccessExpiresIn,
-                        subject : 'accessToken'
-                    });
+                    let accessTokenOptions = {}
+                    if(!!this.jwtAccessExpiresIn && this.jwtAccessExpiresIn>0){
+                        accessTokenOptions = {
+                            expiresIn: this.jwtAccessExpiresIn,
+                            subject : 'accessToken'
+                        }
+                    }else{
+                        accessTokenOptions = {
+                            subject : 'accessToken'
+                        }
+                    }
+                    const accessToken = jwt.sign({keyId}, this.jwtAccessSecret, accessTokenOptions);
                     return { 
                         accessToken : accessToken,
                         refreshToken : refreshToken
