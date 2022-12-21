@@ -123,12 +123,12 @@ class RedisJwtService {
                         refreshToken : refreshToken
                     }
                 }else if (verifyResult.ok === false) {
-                    throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,'No authorized accessToken!');
+                    throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,`No authorized accessToken!: ${verifyResult.message}`);
                 }else if (verifyResult.ok === true) {
                     throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,340, 'Access token is not expired!');
                 }
-            }else if (refreshVerifyResult.ok==false) {
-                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401, 334,'No authorized refreshToken!');
+            }else if (refreshVerifyResult.ok === false) {
+                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401, 334,`No authorized refreshToken!: ${refreshVerifyResult.message}`);
             }
         }else{
             throw new nodeJwtRedisError("Jwt","ValidationError",400, 311,'Both an access token and a refresh token are required!');
@@ -232,10 +232,10 @@ class RedisJwtService {
                 }else if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
                     throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,341,'Access token is expired!');
                 }else if (verifyResult.ok === false) {
-                    throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,'No authorized accessToken!');
+                    throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,`No authorized accessToken!: ${verifyResult.message}`);
                 }
-            }else if(refreshVerifyResult.ok==false){
-                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,334,'No authorized refreshToken!');
+            }else if(refreshVerifyResult.ok === false){
+                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,334,`No authorized refreshToken!: ${refreshVerifyResult.message}`);
             }
 
         }else{
