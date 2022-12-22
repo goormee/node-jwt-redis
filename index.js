@@ -43,7 +43,120 @@ class RedisJwtService {
         }else{
             throw new nodeJwtRedisError("Jwt", "ValidationError", 400, 310, 'There is no environment variables for JWT');
         }
-    }    
+    }
+    
+    /**
+     * issueSoleToken
+     */
+    issueSoleToken = async (keyId) => {
+        keyId = keyId.toString()
+        const data = await this.redisAsync.get(keyId); // 등록된 soleToken 있는지 확인
+        if(!!data){
+            throw new nodeJwtRedisError("Jwt","issueSoleTokenError",400, 320, 'There are already issued tokens!');
+        }else{
+            let soleTokenOptions = {}
+            if(!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0){
+                soleTokenOptions = {
+                    expiresIn: this.jwtRefreshExpiresIn,
+                    subject : 'soleToken'
+                }
+            }else{
+                soleTokenOptions = {
+                    subject : 'soleToken'
+                }
+            }
+            const soleToken = jwt.sign({keyId} , this.jwtRefreshSecret, soleTokenOptions);
+            if (!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0) {
+                this.redis.set(keyId, soleToken,'EX', this.jwtRefreshExpiresIn ,async () => {
+                    console.log(keyId + ' : soleToken regist complete')
+                })
+            } else {
+                this.redis.set(keyId, soleToken ,async () => {
+                    console.log(keyId + ' : soleToken regist complete(unlimit)')
+                })
+            }
+            return { 
+                soleToken : soleToken
+            }
+        }
+    }
+    /**
+     * reissueSoleToken
+     */
+    reissueSoleToken = async (soleToken, keyId) => {
+        if(!!soleToken){
+            const soleTokenVerifyResult = await this.verifySoleToken(soleToken, keyId, 'offError');
+            if (soleTokenVerifyResult.ok === false && soleTokenVerifyResult.message === 'jwt expired') {
+                let soleTokenOptions = {}
+                if(!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0){
+                    soleTokenOptions = {
+                        expiresIn: this.jwtRefreshExpiresIn,
+                        subject : 'soleToken'
+                    }
+                }else{
+                    soleTokenOptions = {
+                        subject : 'soleToken'
+                    }
+                }
+                const soleToken = jwt.sign({keyId} , this.jwtRefreshSecret, soleTokenOptions);
+                if (!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0) {
+                    this.redis.set(keyId, soleToken,'EX', this.jwtRefreshExpiresIn ,async () => {
+                        console.log(keyId + ' : soleToken regist complete')
+                    })
+                } else {
+                    this.redis.set(keyId, soleToken ,async () => {
+                        console.log(keyId + ' : soleToken regist complete(unlimit)')
+                    })
+                }
+                return { 
+                    soleToken : soleToken
+                }            
+            }else if (soleTokenVerifyResult.ok === false) {
+                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401, 334,`No authorized soleToken!: ${soleTokenVerifyResult.message}`);
+            }else if (soleTokenVerifyResult.ok === true) {
+                throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,340, 'SoleToken is not expired!');
+            }
+        }else{
+            throw new nodeJwtRedisError("Jwt","ValidationError",400, 311,'soleToken are required!');
+        }
+    }
+    /**
+     * verifySoleToken
+     */
+    verifySoleToken = async (token, keyId, mode) => { // sole token 검증
+        keyId = keyId.toString();
+        token = token.toString();
+        let decoded = null;
+        try {
+          const data = await this.redisAsync.get(keyId); // sole token 가져오기
+          if (token === data) {
+            decoded = jwt.verify(token, this.jwtRefreshSecret);
+            decoded.ok = true;
+            decoded.message = 'valid'
+            return decoded;
+          } else {
+            return {
+                ok: false,
+                message: 'unauthorized'
+            };
+          }
+        } catch (err) {
+            if(mode=='offError'){
+                return {
+                    ok: false,
+                    message: err.message
+                };
+            }else{
+                if(err.name =='TokenExpiredError'){
+                    throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,342, 'Sole token is expired!');
+                }else if(err.name =='JsonWebTokenError'){
+                    throw new nodeJwtRedisError("Jwt","TokenInvaildError",401, 332, err.message);
+                }else{
+                    throw new nodeJwtRedisError("Jwt", err.name, 400, 350, err);
+                }
+            }
+        }
+    }
     /**
      * issueTokenPair
      */
@@ -92,6 +205,7 @@ class RedisJwtService {
             }
         }
     }
+
     /**
      * reissueAccessToken
      */
@@ -134,6 +248,7 @@ class RedisJwtService {
             throw new nodeJwtRedisError("Jwt","ValidationError",400, 311,'Both an access token and a refresh token are required!');
         }
     }
+
     /**
      * verifyAccessToken
      */
