@@ -32,14 +32,14 @@ class RedisJwtService {
             this.redisAsync = redisClient.v4;// 기본 redisClient 객체는 콜백기반인데 v4버젼은 프로미스 기반이라 사용
         }
     }
-    jwtInit = async(jwt)=>{
+    jwtInit = async(jwtConfig)=>{
         //* jwt 셋팅
         this.jwt = jwt;
-        if(!!jwt&&Object.keys(jwt).length>0){
-            this.jwtAccessSecret = jwt.accessSecret;
-            this.jwtRefreshSecret = jwt.refreshSecret;
-            this.jwtAccessExpiresIn = jwt.accessExpiresIn;
-            this.jwtRefreshExpiresIn = jwt.refreshExpiresIn;
+        if(!!jwt&&Object.keys(jwtConfig).length>0){
+            this.jwtAccessSecret = jwtConfig.accessSecret;
+            this.jwtRefreshSecret = jwtConfig.refreshSecret;
+            this.jwtAccessExpiresIn = jwtConfig.accessExpiresIn;
+            this.jwtRefreshExpiresIn = jwtConfig.refreshExpiresIn;
         }else{
             throw new nodeJwtRedisError("Jwt", "ValidationError", 400, 310, 'There is no environment variables for JWT');
         }
