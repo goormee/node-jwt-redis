@@ -357,6 +357,35 @@ class RedisJwtService {
             throw new nodeJwtRedisError("Jwt","ValidationError",400,311,'Both an access token and a refresh token are required!');
         }
     }
+    /**
+     * destroyAccessToken
+     */
+     destroyAccessToken = async (accessToken) => {
+        if(!!accessToken){
+            const verifyResult = await this.verifyAccessToken(accessToken,'offError');
+            const decoded = jwt.decode(accessToken)
+            if (decoded === null) {
+                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,'No authorized accessToken!');
+            }
+            if (verifyResult.ok) {
+                await this.redisAsync.del(decoded.keyId);
+                const currentTime = Math.round((new Date().getTime())/1000);
+                const restExipreTime = decoded.exp-currentTime
+                
+                if(restExipreTime>3){
+                    this.redis.set(accessToken, 'logout','EX', restExipreTime ,async () => {
+                        console.log(accessToken + ' : blackList regist complete')
+                    })
+                }
+            }else if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
+                throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,341,'Access token is expired!');
+            }else if (verifyResult.ok === false) {
+                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,`No authorized accessToken!: ${verifyResult.message}`);
+            }
+        }else{
+            throw new nodeJwtRedisError("Jwt","ValidationError",400,311,'access token is required!');
+        }
+    }
 }
 module.exports.jwtRedis = RedisJwtService;
 module.exports.error = nodeJwtRedisError;
