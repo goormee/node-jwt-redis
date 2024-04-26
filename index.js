@@ -1,10 +1,13 @@
 const {createClient} = require('redis');
 const jwt = require("jsonwebtoken");
+const crypto = require('crypto');
 const nodeJwtRedisError = require("./nodeJwtRedisError");
 class RedisJwtService {
     constructor(redis,jwt) {
         this.redisInit(redis);
         this.jwtInit(jwt);
+        this.secretKey = 'PpZezRYKmpyyI0TuTy1ojx3C6L+czAA='
+        this.saltKey = 'b6a5a19482bbf3de41298394278348839c6a7c9a52cef0a8e9af9fa5499f2a2568b9b7463c41f668bd0db507289b085cb93aee2bfb959be18ee5ea781c868971'
     }
     redisInit = async(redis)=>{
         //* Redis 연결
@@ -44,7 +47,33 @@ class RedisJwtService {
             throw new nodeJwtRedisError("Jwt", "ValidationError", 400, 310, 'There is no environment variables for JWT');
         }
     }
+    /**
+     * AES 암호화
+     */
+    aesEnc = (text) => {
+        let iv = crypto.randomBytes(16);
+        let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(this.secretKey), iv);
+        let encrypted = cipher.update(text);
     
+        encrypted = Buffer.concat([encrypted, cipher.final()]);
+    
+        return iv.toString('hex') + this.saltKey + encrypted.toString('hex');
+    }
+    /**
+     * AES 복호화
+     */
+    aesDec = (encstr) => {
+        let textParts = encstr.split(this.saltKey);
+        let iv = Buffer.from(textParts.shift(), 'hex');
+        let encryptedText = Buffer.from(textParts.join(this.saltKey), 'hex');
+        let decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(this.secretKey), iv);
+        let decrypted = decipher.update(encryptedText);
+        
+        decrypted = Buffer.concat([decrypted, decipher.final()]);
+        
+        return decrypted.toString();
+    }
+
     /**
      * issueSoleToken
      */
@@ -55,9 +84,9 @@ class RedisJwtService {
             throw new nodeJwtRedisError("Jwt","issueSoleTokenError",400, 320, 'There are already issued tokens!');
         }else{
             let soleTokenOptions = {}
-            if(!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0){
+            if(!!this.jwtAccessExpiresIn && this.jwtAccessExpiresIn>0){
                 soleTokenOptions = {
-                    expiresIn: this.jwtRefreshExpiresIn,
+                    expiresIn: this.jwtAccessExpiresIn,
                     subject : 'soleToken'
                 }
             }else{
@@ -65,9 +94,9 @@ class RedisJwtService {
                     subject : 'soleToken'
                 }
             }
-            const soleToken = jwt.sign({keyId} , this.jwtRefreshSecret, soleTokenOptions);
-            if (!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0) {
-                this.redis.set(keyId, soleToken,'EX', this.jwtRefreshExpiresIn ,async () => {
+            const soleToken = jwt.sign({keyId: this.aesEnc(keyId)} , this.jwtAccessSecret, soleTokenOptions);
+            if (!!this.jwtAccessExpiresIn && this.jwtAccessExpiresIn>0) {
+                this.redis.set(keyId, soleToken,'EX', this.jwtAccessExpiresIn ,async () => {
                     console.log(keyId + ' : soleToken regist complete')
                 })
             } else {
@@ -88,9 +117,9 @@ class RedisJwtService {
             const soleTokenVerifyResult = await this.verifySoleToken(soleToken, keyId, 'offError');
             if (soleTokenVerifyResult.ok === false && soleTokenVerifyResult.message === 'jwt expired') {
                 let soleTokenOptions = {}
-                if(!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0){
+                if(!!this.jwtAccessExpiresIn && this.jwtAccessExpiresIn>0){
                     soleTokenOptions = {
-                        expiresIn: this.jwtRefreshExpiresIn,
+                        expiresIn: this.jwtAccessExpiresIn,
                         subject : 'soleToken'
                     }
                 }else{
@@ -98,9 +127,9 @@ class RedisJwtService {
                         subject : 'soleToken'
                     }
                 }
-                const soleToken = jwt.sign({keyId} , this.jwtRefreshSecret, soleTokenOptions);
-                if (!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0) {
-                    this.redis.set(keyId, soleToken,'EX', this.jwtRefreshExpiresIn ,async () => {
+                const soleToken = jwt.sign({keyId: this.aesEnc(keyId)} , this.jwtAccessSecret, soleTokenOptions);
+                if (!!this.jwtAccessExpiresIn && this.jwtAccessExpiresIn>0) {
+                    this.redis.set(keyId, soleToken,'EX', this.jwtAccessExpiresIn ,async () => {
                         console.log(keyId + ' : soleToken regist complete')
                     })
                 } else {
@@ -124,15 +153,16 @@ class RedisJwtService {
      * verifySoleToken
      */
     verifySoleToken = async (token, keyId, mode) => { // sole token 검증
-        keyId = keyId.toString();
         token = token.toString();
+        keyId = keyId.toString();
         let decoded = null;
         try {
           const data = await this.redisAsync.get(keyId); // sole token 가져오기
           if (token === data) {
-            decoded = jwt.verify(token, this.jwtRefreshSecret);
+            decoded = jwt.verify(token, this.jwtAccessSecret);
             decoded.ok = true;
             decoded.message = 'valid'
+            decoded.keyId = this.aesDec(decoded.keyId)
             return decoded;
           } else {
             return {
@@ -188,8 +218,8 @@ class RedisJwtService {
                     subject : 'refreshToken'
                 }
             }
-            const accessToken = jwt.sign({keyId} , this.jwtAccessSecret, accessTokenOptions);
-            const refreshToken = jwt.sign({keyId} , this.jwtRefreshSecret, refreshTokenOptions);
+            const accessToken = jwt.sign({keyId: this.aesEnc(keyId)} , this.jwtAccessSecret, accessTokenOptions);
+            const refreshToken = jwt.sign({keyId: this.aesEnc(keyId)} , this.jwtRefreshSecret, refreshTokenOptions);
             if (!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0) {
                 this.redis.set(keyId, refreshToken,'EX', this.jwtRefreshExpiresIn ,async () => {
                     console.log(keyId + ' : refreshToken regist complete')
@@ -212,11 +242,7 @@ class RedisJwtService {
      reissueAccessToken = async (accessToken,refreshToken) => {
         if(!!accessToken&&!!refreshToken){
             const verifyResult = await this.verifyAccessToken(accessToken,'offError');
-            const decoded = jwt.decode(accessToken)
-            if (decoded === null) {
-                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401, 333,'No authorized accessToken!');
-            }
-            const keyId = decoded.keyId;
+            const keyId = verifyResult.keyId;
             const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, keyId,'offError');
             if(refreshVerifyResult.ok==true){
                 if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
@@ -231,15 +257,36 @@ class RedisJwtService {
                             subject : 'accessToken'
                         }
                     }
-                    const accessToken = jwt.sign({keyId}, this.jwtAccessSecret, accessTokenOptions);
+                    let refreshTokenOptions = {}
+                    if(!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0){
+                        refreshTokenOptions = {
+                            expiresIn: this.jwtRefreshExpiresIn,
+                            subject : 'refreshToken'
+                        }
+                    }else{
+                        refreshTokenOptions = {
+                            subject : 'refreshToken'
+                        }
+                    }
+                    const newAccessToken = jwt.sign({keyId:this.aesEnc(keyId)}, this.jwtAccessSecret, accessTokenOptions);
+                    const newRefreshToken = jwt.sign({keyId: this.aesEnc(keyId)} , this.jwtRefreshSecret, refreshTokenOptions);
+                    if (!!this.jwtRefreshExpiresIn && this.jwtRefreshExpiresIn>0) {
+                        this.redis.set(keyId, newRefreshToken,'EX', this.jwtRefreshExpiresIn ,async () => {
+                            console.log(keyId + ' : refreshToken regist complete')
+                        })
+                    } else {
+                        this.redis.set(keyId, newRefreshToken ,async () => {
+                            console.log(keyId + ' : refreshToken regist complete(unlimit)')
+                        })
+                    }
                     return { 
-                        accessToken : accessToken,
-                        refreshToken : refreshToken
+                        accessToken : newAccessToken,
+                        refreshToken : newRefreshToken
                     }
                 }else if (verifyResult.ok === false) {
                     throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,`No authorized accessToken!: ${verifyResult.message}`);
                 }else if (verifyResult.ok === true) {
-                    throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,340, 'Access token is not expired!');
+                    await this.destroyAccessToken(accessToken)
                 }
             }else if (refreshVerifyResult.ok === false) {
                 throw new nodeJwtRedisError("Jwt","TokenInvaildError",401, 334,`No authorized refreshToken!: ${refreshVerifyResult.message}`);
@@ -266,6 +313,7 @@ class RedisJwtService {
               decoded = jwt.verify(token, this.jwtAccessSecret);
               decoded.ok = true;
               decoded.message = 'valid'
+              decoded.keyId = this.aesDec(decoded.keyId)
               return decoded;
           }
         } catch (err) {
@@ -298,6 +346,7 @@ class RedisJwtService {
             decoded = jwt.verify(token, this.jwtRefreshSecret);
             decoded.ok = true;
             decoded.message = 'valid'
+            decoded.keyId = this.aesDec(decoded.keyId)
             return decoded;
           } else {
             return {
@@ -345,10 +394,12 @@ class RedisJwtService {
                         })
                     }
                 }else if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
-                    throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,341,'Access token is expired!');
+                    console.error('AccessToken is expired!')
                 }else if (verifyResult.ok === false) {
                     throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,`No authorized accessToken!: ${verifyResult.message}`);
                 }
+            }else if(refreshVerifyResult.ok === false&& refreshVerifyResult.message === 'jwt expired'){
+                console.error('refreshToken is expired!')
             }else if(refreshVerifyResult.ok === false){
                 throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,334,`No authorized refreshToken!: ${refreshVerifyResult.message}`);
             }
@@ -378,7 +429,7 @@ class RedisJwtService {
                     })
                 }
             }else if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
-                throw new nodeJwtRedisError("Jwt","TokenExpiredError",401,341,'Access token is expired!');
+                console.error('AccessToken is expired!')
             }else if (verifyResult.ok === false) {
                 throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,`No authorized accessToken!: ${verifyResult.message}`);
             }
