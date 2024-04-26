@@ -245,7 +245,10 @@ class RedisJwtService {
             const keyId = verifyResult.keyId;
             const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, keyId,'offError');
             if(refreshVerifyResult.ok==true){
-                if (verifyResult.ok === false && verifyResult.message === 'jwt expired') {
+                if (verifyResult.ok === true||(verifyResult.ok === false && verifyResult.message === 'jwt expired')) {
+                    if (verifyResult.ok === true) {
+                        await this.destroyAccessToken(accessToken)
+                    }
                     let accessTokenOptions = {}
                     if(!!this.jwtAccessExpiresIn && this.jwtAccessExpiresIn>0){
                         accessTokenOptions = {
@@ -285,8 +288,6 @@ class RedisJwtService {
                     }
                 }else if (verifyResult.ok === false) {
                     throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,`No authorized accessToken!: ${verifyResult.message}`);
-                }else if (verifyResult.ok === true) {
-                    await this.destroyAccessToken(accessToken)
                 }
             }else if (refreshVerifyResult.ok === false) {
                 throw new nodeJwtRedisError("Jwt","TokenInvaildError",401, 334,`No authorized refreshToken!: ${refreshVerifyResult.message}`);
@@ -377,16 +378,12 @@ class RedisJwtService {
      destroyToken = async (accessToken,refreshToken) => {
         if(!!accessToken,!!refreshToken){
             const verifyResult = await this.verifyAccessToken(accessToken,'offError');
-            const decoded = jwt.decode(accessToken)
-            if (decoded === null) {
-                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,'No authorized accessToken!');
-            }
-            const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, decoded.keyId,'offError');
+            const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, verifyResult.keyId,'offError');
             if(refreshVerifyResult.ok==true){
                 if (verifyResult.ok) {
-                    await this.redisAsync.del(decoded.keyId);
+                    await this.redisAsync.del(verifyResult.keyId);
                     const currentTime = Math.round((new Date().getTime())/1000);
-                    const restExipreTime = decoded.exp-currentTime
+                    const restExipreTime = verifyResult.exp-currentTime
   
                     if(restExipreTime>3){
                         this.redis.set(accessToken, 'logout','EX', restExipreTime ,async () => {
@@ -414,14 +411,10 @@ class RedisJwtService {
      destroyAccessToken = async (accessToken) => {
         if(!!accessToken){
             const verifyResult = await this.verifyAccessToken(accessToken,'offError');
-            const decoded = jwt.decode(accessToken)
-            if (decoded === null) {
-                throw new nodeJwtRedisError("Jwt","TokenInvaildError",401,333,'No authorized accessToken!');
-            }
             if (verifyResult.ok) {
-                await this.redisAsync.del(decoded.keyId);
+                await this.redisAsync.del(verifyResult.keyId);
                 const currentTime = Math.round((new Date().getTime())/1000);
-                const restExipreTime = decoded.exp-currentTime
+                const restExipreTime = verifyResult.exp-currentTime
                 
                 if(restExipreTime>3){
                     this.redis.set(accessToken, 'logout','EX', restExipreTime ,async () => {
