@@ -321,7 +321,8 @@ class RedisJwtService {
             if(mode=='offError'){
                 return {
                     ok: false,
-                    message: err.message
+                    message: err.message,
+                    keyId: jwt.decode(token).keyId
                 };
             }else{
                 if(err.name =='TokenExpiredError'){
