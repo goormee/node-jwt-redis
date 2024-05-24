@@ -242,7 +242,7 @@ class RedisJwtService {
      reissueAccessToken = async (accessToken,refreshToken) => {
         if(!!accessToken&&!!refreshToken){
             const verifyResult = await this.verifyAccessToken(accessToken,'offError');
-            const keyId = verifyResult.keyId;
+            const keyId = this.aesDec(verifyResult.keyId);
             const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, keyId,'offError');
             if(refreshVerifyResult.ok==true){
                 if (verifyResult.ok === true||(verifyResult.ok === false && verifyResult.message === 'jwt expired')) {
