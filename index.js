@@ -167,14 +167,16 @@ class RedisJwtService {
           } else {
             return {
                 ok: false,
-                message: 'unauthorized'
+                message: 'unauthorized',
+                keyId: this.aesDec(jwt.decode(token).keyId)
             };
           }
         } catch (err) {
             if(mode=='offError'){
                 return {
                     ok: false,
-                    message: err.message
+                    message: err.message,
+                    keyId: this.aesDec(jwt.decode(token).keyId)
                 };
             }else{
                 if(err.name =='TokenExpiredError'){
@@ -242,7 +244,7 @@ class RedisJwtService {
      reissueAccessToken = async (accessToken,refreshToken) => {
         if(!!accessToken&&!!refreshToken){
             const verifyResult = await this.verifyAccessToken(accessToken,'offError');
-            const keyId = this.aesDec(verifyResult.keyId);
+            const keyId = verifyResult.keyId;
             const refreshVerifyResult = await this.verifyRefreshToken(refreshToken, keyId,'offError');
             if(refreshVerifyResult.ok==true){
                 if (verifyResult.ok === true||(verifyResult.ok === false && verifyResult.message === 'jwt expired')) {
@@ -322,7 +324,7 @@ class RedisJwtService {
                 return {
                     ok: false,
                     message: err.message,
-                    keyId: jwt.decode(token).keyId
+                    keyId: this.aesDec(jwt.decode(token).keyId)
                 };
             }else{
                 if(err.name =='TokenExpiredError'){
@@ -353,14 +355,16 @@ class RedisJwtService {
           } else {
             return {
                 ok: false,
-                message: 'unauthorized'
+                message: 'unauthorized',
+                keyId: this.aesDec(jwt.decode(token).keyId)
             };
           }
         } catch (err) {
             if(mode=='offError'){
                 return {
                     ok: false,
-                    message: err.message
+                    message: err.message,
+                    keyId: this.aesDec(jwt.decode(token).keyId)
                 };
             }else{
                 if(err.name =='TokenExpiredError'){
