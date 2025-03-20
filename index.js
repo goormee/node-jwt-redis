@@ -212,7 +212,7 @@ class RedisJwtService {
   /**
    * reissueAccessToken
    */
-  reissueAccessToken = async (accessToken, refreshToken) => {
+  reissueAccessToken = async (accessToken, refreshToken, mode) => {
     if (accessToken && refreshToken) {
       const verifyResult = await this.verifyAccessToken(accessToken, 'offError');
       const keyId = verifyResult.keyId;
@@ -246,13 +246,49 @@ class RedisJwtService {
             refreshToken: newRefreshToken
           };
         } else if (verifyResult.ok === false) {
-          throw new nodeJwtRedisError("Jwt", "TokenInvaildError", 401, 333, `No authorized accessToken!: ${verifyResult.message}`);
+          if(mode=='offError'){
+            return {
+              error: {
+                type: 'Jwt',
+                name: 'TokenInvaildError',
+                status: 401,
+                code: 333,
+                message: `No authorized accessToken!: ${verifyResult.message}`
+              }
+            }
+          }else{
+            throw new nodeJwtRedisError("Jwt", "TokenInvaildError", 401, 333, `No authorized accessToken!: ${verifyResult.message}`);
+          }
         }
       } else if (refreshVerifyResult.ok === false) {
-        throw new nodeJwtRedisError("Jwt", "TokenInvaildError", 401, 334, `No authorized refreshToken!: ${refreshVerifyResult.message}`);
+        if(mode=='offError'){
+          return {
+            error: {
+              type: 'Jwt',
+              name: 'TokenInvaildError',
+              status: 401,
+              code: 334,
+              message: `No authorized refreshToken!: ${refreshVerifyResult.message}`
+            }
+          }
+        }else{
+          throw new nodeJwtRedisError("Jwt", "TokenInvaildError", 401, 334, `No authorized refreshToken!: ${refreshVerifyResult.message}`);
+        }
       }
     } else {
-      throw new nodeJwtRedisError("Jwt", "ValidationError", 400, 311, 'Both an access token and a refresh token are required!');
+      if(mode=='offError'){
+        return {
+          error: {
+            type: 'Jwt',
+            name: 'ValidationError',
+            status: 400,
+            code: 311,
+            message: 'Both an access token and a refresh token are required!'
+          }
+        }
+      }else{
+        throw new nodeJwtRedisError("Jwt", "ValidationError", 400, 311, 'Both an access token and a refresh token are required!');
+      }
     }
   }
 
